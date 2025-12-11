@@ -435,7 +435,7 @@ def generate_noise_dataset(csv_file, year = "1999", noise = 0):
             enron_name_from = get_enron_name(name_from)
             name_to = set(get_name(csv_file.iloc[i]['To']))
             enron_name_to = get_enron_name(name_to)
-            cur_day = parser.parse(csv_file.iloc[i]['Date']).date()
+            cur_day = csv_file.iloc[i]['Date'].date()
             if cur_day != prev_day:
                 new_edges = edges_today - exsiting_edges
                 graph, dic_two_path = online_two_path(graph,dic_two_path,new_edges)
@@ -514,7 +514,7 @@ def high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 0, year = 'NA'):
     dic_people = defaultdict(list)
     # start_i = 0
     # start_i = 400000
-    prev_day = parser.parse(csv_file.iloc[start_i]['Date']).date()
+    prev_day = csv_file.iloc[start_i]['Date'].date()
     name_prev_day = defaultdict(lambda: datetime.min)
     name_rank = defaultdict(int)
     words = stopwords.words()
@@ -568,7 +568,7 @@ def high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 0, year = 'NA'):
         enron_name_from = get_enron_name(name_from)
         name_to = set(get_name(csv_file.iloc[i]['To']))
         enron_name_to = get_enron_name(name_to)
-        cur_day = parser.parse(csv_file.iloc[i]['Date']).date()
+        cur_day = csv_file.iloc[i]['Date'].date()
         if cur_day != prev_day:
             new_edges = edges_today - exsiting_edges
             graph, dic_two_path = online_two_path(graph,dic_two_path,new_edges)
@@ -578,7 +578,7 @@ def high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 0, year = 'NA'):
             distance = {}
         if len(enron_name_from) > 0 or len(enron_name_to) > 0:
             try:
-                content_length, stop_length = remove_stop_words(csv_file.iloc[i]['Content'],words)
+                content_length, stop_length = remove_stop_words(csv_file.iloc[i]['body'],words)
             except:
                 content_length, stop_length = 1,0
         for nf in enron_name_from:
@@ -643,7 +643,7 @@ def high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 0, year = 'NA'):
                     # smaller before
                     
         
-    json_people = json.dumps(dic_people)
+    json_people = json.dumps(dic_people, default=str)
     if end_i == len(csv_file):
         if start_i != 0:
             name = "chat_distance2_part"
@@ -831,7 +831,7 @@ def get_pattern5(): # get pattern for stage vs length, stage vs time all togethe
 
 # start dataset 8
 
-csv_file = pd.read_csv(path + dataset[8])
+csv_file = pd.read_csv(path + dataset[7])
 org = pd.read_csv(path + 'organazition2.csv')
 dic_stage = {}
 for i in range(len(org)):
@@ -843,11 +843,6 @@ csv_file.sort_values(["Date"],axis=0, ascending=True,inplace=True,na_position='f
 csv_file.to_csv(path+'sorted_emails1.csv',index=False)
 
 
-high_freqeuncy_all(csv_file, down_sampling = 0)
-high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 400000)
-high_freqeuncy_all(csv_file, down_sampling = 0.3)
-high_freqeuncy_all(csv_file, down_sampling = 0.3, start_i = 400000)
-high_freqeuncy_all(csv_file, year = 1999)
-high_freqeuncy_all(csv_file, year = 2000)
-high_freqeuncy_all(csv_file, year = 2001)
 high_freqeuncy_all(csv_file, year = 2002)
+
+# Date From to x-from ~ x-cc 
