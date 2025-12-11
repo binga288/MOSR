@@ -2,7 +2,7 @@
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timedelta
-# from lib2to3.refactor import get_all_fix_names
+from lib2to3.refactor import get_all_fix_names
 from xml.etree.ElementInclude import default_loader
 from dateutil import parser
 from heapq import heappush,heappop
@@ -37,7 +37,7 @@ class Model:
         self.owa_parameter = owa_parameter
         self.distance_measure = distance_measure
         # initilize exisiting functions
-        self.learning_functions = [self.OWA1, self.OWA2, self.OWA3, self.OWA4, self.timeline, self.WOWA]
+        self.learning_functions = [self.OWA1, self.OWA2, self.OWA3, self.OWA4, self.OWA5, self.timeline, self.WOWA]
         self.k = len(self.learning_functions) # how many functions we have
         # initilize OWA weights
         self.Q_function()
@@ -369,6 +369,7 @@ class Model:
         for rank, key in zip( rankings, list(dic_all.keys())):
             dic_res[key] = rank
         return dic_res
+
     def WOWA(self, send_time, reply_time, cur_time):
         scores = []
         candidates = set(send_time.keys()).union(set(reply_time.keys()))
@@ -416,6 +417,100 @@ class Model:
         for rank, key in zip( rankings, list(dic_all.keys())):
             dic_res[key] = rank
         return dic_res
+
+    def OWA5(self, send_time, reply_time, cur_time):
+        """
+        [Professor's Optimization Proposal]
+        Optimization Strategy: "Exponential Decay with Interaction Type Weighting"
+        
+        Rationale:
+        1. Recency is key: Linear decay underestimates the importance of very recent interactions. 
+           We switch to exponential decay: score = exp(-decay_rate * delta_days).
+        2. Interaction Type matters: Sending an email is a stronger signal than being CC'd.
+           We apply multipliers: Send (1.0) > Reply (0.8) > CC (0.5).
+        """
+        scores = []
+        candidates = set(send_time.keys()).union(set(reply_time.keys()))
+        candidates = candidates.union(self.cc_set.keys())
+        dic_all = {}
+
+        decay_rate = 0.8  # Controls how fast importance drops over time
+        w_send = 1.0
+        w_reply = 1.0
+        w_cc = 0.5
+
+        for key in sorted(list(candidates)):
+            if key in send_time:
+                act_send = deepcopy(send_time[key])
+            else:
+                act_send = []
+            if key in reply_time:
+                act_reply = deepcopy(reply_time[key])
+            else:
+                act_reply = []
+            if key in self.cc_set:
+                act_cc = deepcopy(self.cc_set[key])
+            else:
+                act_cc = []
+            
+            
+            # 1. Process Send acts
+            for i, act in enumerate(act_send):
+                delta = cur_time - act[-1]
+                # Normalize delta to window size
+                norm_delta = (delta.days * 24 + delta.seconds/3600)/24 / self.expire_window
+                # Exponential decay: closer to 0 (recent) -> score closer to 1
+                time_score = math.exp(-decay_rate * norm_delta)
+                act[-1] = time_score * w_send # Apply Type Weight
+                act_send[i] = act
+
+            # 2. Process Reply acts
+            for i, act in enumerate(act_reply):
+                delta = cur_time - act[-1]
+                norm_delta = (delta.days * 24 + delta.seconds/3600)/24 / self.expire_window
+                time_score = math.exp(-decay_rate * norm_delta)
+                act[-1] = time_score * w_reply # Apply Type Weight
+                act_reply[i] = act
+
+            # 3. Process CC acts
+            for i, act in enumerate(act_cc):
+                delta = cur_time - act[-1]
+                norm_delta = (delta.days * 24 + delta.seconds/3600)/24 / self.expire_window
+                time_score = math.exp(-decay_rate * norm_delta)
+                act[-1] = time_score * w_cc # Apply Type Weight
+                act_cc[i] = act
+
+            acts = act_send + act_reply + act_cc
+            
+            # [Professor's Note]: If no acts, score should be 0
+            if not acts:
+                dic_all[key] = 0
+            else:
+                dic_all[key] = np.mean(np.array(acts),axis = 0)
+
+        for act in dic_all.values():
+            # [Professor's Note]: Handle edge case where act is scalar 0 (no interactions)
+            if isinstance(act, int) and act == 0:
+                scores.append(0)
+                continue
+                
+            try:
+                sorted_act = sorted(act[:self.k])
+            except:
+                print(1)
+            scores.append(sum([Q * a for Q, a in zip(self.Q_funcs, sorted_act)]))
+        
+        # [FIX] OWA5 uses Exponential Decay (Similarity). Higher is Better.
+        sorted_indices = np.argsort(np.array(scores))[::-1]
+        
+        # return result, key is email, value is rank
+        dic_res = {}
+        keys = list(dic_all.keys())
+        for rank, idx in enumerate(sorted_indices):
+            key = keys[idx]
+            dic_res[key] = rank
+        return dic_res
+
     def timeline(self,send_time, reply_time, cur_time): # newest rank first
         scores = []
         candidates = set(send_time.keys()).union(set(reply_time.keys()))
