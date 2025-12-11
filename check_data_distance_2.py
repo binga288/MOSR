@@ -511,10 +511,7 @@ def generate_noise_dataset(csv_file, year = "1999", noise = 0):
                     else:
                         name_from_to[b].add(a)
         
-# def json_serial(obj):
-#     if(isinstance(obj, datetime)):
-#         return obj.isoformat
-#     raise TypeError("Type not serializable")
+
 def high_freqeuncy_all(csv_file, down_sampling = 0, start_i = 0, year = 'NA'):
     random.seed(1)
     dic_people = defaultdict(list)
